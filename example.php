@@ -11,7 +11,7 @@ $realm    = '';
 $client = new OX3_API_Client($uri, $email, $password, $key, $secret, $realm);
 
 // Add a user
-//$result = $client->post('/a/user/', array('first_name' => 'Chris', 'last_name' => 'Nutting', 'account_id' => 7, 'email' => uniqid('chris.nutting+') . '@openx.org', 'password' => md5('test'), 'status' => 'Active'));
+//$result = $client->post('/a/user/', array('first_name' => 'Chris', 'last_name' => 'Nutting', 'account_id' => 7, 'email' => uniqid('chris.nutting+') . '@openx.org', 'status' => 'Active'));
 
 // Get a user
 $result = $client->get('/a/user/1');
