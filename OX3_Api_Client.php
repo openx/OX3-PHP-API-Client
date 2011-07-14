@@ -8,11 +8,21 @@ class OX3_Api_Client extends Zend_Rest_Client
 {
     var $path_prefix = '/ox/3.0';
 
-    public function __construct($uri, $email, $password, $consumer_key, $consumer_secret, $oauth_realm, $cookieJarFile = './OX3_Api_CookieJar.txt')
+    public function __construct($uri, $email, $password, $consumer_key, $consumer_secret, $oauth_realm, $cookieJarFile = './OX3_Api_CookieJar.txt', $sso = array())
     {
         parent::__construct($uri);
         $aUrl = parse_url($uri);
 
+        if (empty($sso)) {
+            $sso = array(
+                'siteUrl'           => 'https://sso.openx.com/api/index/initiate',
+                'requestTokenUrl'   => 'https://sso.openx.com/api/index/initiate',
+                'accessTokenUrl'    => 'https://sso.openx.com/api/index/token',
+                'authorizeUrl'      => 'https://sso.openx.com/login/login',
+                'loginUrl'          => 'https://sso.openx.com/login/process',
+            );
+        }
+        
         // Initilize the cookie jar, from the $cookieJarFile if present
         $client = self::getHttpClient();
         if (is_readable($cookieJarFile)) {
@@ -29,10 +39,10 @@ class OX3_Api_Client extends Zend_Rest_Client
             $config = array(
                 // The default behaviour of Zend_Oauth_Consumer is to use 'oob' when callbackUrl is NOT set
                 //'callbackUrl'       => 'oob',
-                'siteUrl'           => 'https://sso.openx.com/api/index/initiate',
-                'requestTokenUrl'   => 'https://sso.openx.com/api/index/initiate',
-                'accessTokenUrl'    => 'https://sso.openx.com/api/index/token',
-                'authorizeUrl'      => 'https://sso.openx.com/login/login',
+                'siteUrl'           => $sso['siteUrl'],
+                'requestTokenUrl'   => $sso['requestTokenUrl'],
+                'accessTokenUrl'    => $sso['accessTokenUrl'],
+                'authorizeUrl'      => $sso['authorizeUrl'],
                 'consumerKey'       => $consumer_key,
                 'consumerSecret'    => $consumer_secret,
                 'realm'             => $oauth_realm,
@@ -41,7 +51,7 @@ class OX3_Api_Client extends Zend_Rest_Client
             $requestToken = $oAuth->getRequestToken();
 
             // Authenticate to SSO
-            $loginClient = new Zend_Http_Client('https://sso.openx.com/login/process');
+            $loginClient = new Zend_Http_Client($sso['loginUrl']);
             $loginClient->setCookieJar();
             $loginClient->setParameterPost(array(
                 'email'         => $email,
@@ -66,6 +76,7 @@ class OX3_Api_Client extends Zend_Rest_Client
                 $result = $this->put('/a/session/validate');
                 if ($result->isSuccessful()) {
                     file_put_contents($cookieJarFile, serialize($client->getCookieJar()));
+                    chmod($cookieJarFile, 0666);
                 }
             } else {
                 throw new Exception('SSO Authentication error');
