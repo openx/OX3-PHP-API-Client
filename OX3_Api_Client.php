@@ -25,9 +25,11 @@ class OX3_Api_Client extends Zend_Rest_Client
         
         // Initilize the cookie jar, from the $cookieJarFile if present
         $client = self::getHttpClient();
+        $cookieJar = false;
         if (is_readable($cookieJarFile)) {
-            $cookieJar = unserialize(file_get_contents($cookieJarFile));
-        } else {
+            $cookieJar = @unserialize(file_get_contents($cookieJarFile));
+        }
+        if (!$cookieJar instanceof Zend_Http_CookieJar) {
             $cookieJar = new Zend_Http_CookieJar();
         }
         $client->setCookieJar($cookieJar);
