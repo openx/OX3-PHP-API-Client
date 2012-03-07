@@ -77,7 +77,7 @@ class OX3_Api_Client extends Zend_Rest_Client
                 $client->setCookie(new Zend_Http_Cookie('openx3_access_token', $accessToken, $aUrl['host']));
                 $result = $this->put('/a/session/validate');
                 if ($result->isSuccessful()) {
-                    file_put_contents($cookieJarFile, serialize($client->getCookieJar()));
+                    file_put_contents($cookieJarFile, serialize($client->getCookieJar()), LOCK_EX);
                     chmod($cookieJarFile, 0666);
                 }
             } else {
