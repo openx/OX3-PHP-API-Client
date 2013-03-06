@@ -8,7 +8,7 @@ class OX3_Api_Client extends Zend_Rest_Client
 {
     var $path_prefix = '/ox/3.0';
 
-    public function __construct($uri, $email, $password, $consumer_key, $consumer_secret, $oauth_realm, $cookieJarFile = './OX3_Api_CookieJar.txt', $sso = array())
+    public function __construct($uri, $email, $password, $consumer_key, $consumer_secret, $oauth_realm, $cookieJarFile = './OX3_Api_CookieJar.txt', $sso = array(), $proxy = array())
     {
         parent::__construct($uri);
         $aUrl = parse_url($uri);
@@ -22,6 +22,10 @@ class OX3_Api_Client extends Zend_Rest_Client
                 'loginUrl'          => 'https://sso.openx.com/login/process',
             );
         }
+        // Set the proxy['adapter'] if $proxy config was passed in
+        if (!empty($proxy)) {
+          $proxy['adapter'] = 'Zend_Http_Client_Adapter_Proxy';
+        }
         
         // Initilize the cookie jar, from the $cookieJarFile if present
         $client = self::getHttpClient();
@@ -33,6 +37,7 @@ class OX3_Api_Client extends Zend_Rest_Client
             $cookieJar = new Zend_Http_CookieJar();
         }
         $client->setCookieJar($cookieJar);
+        $client->setConfig($proxy);
         $result = $this->put('/a/session/validate');
         
         // See if the openx3_access_token is still valid...
@@ -55,6 +60,7 @@ class OX3_Api_Client extends Zend_Rest_Client
             // Authenticate to SSO
             $loginClient = new Zend_Http_Client($sso['loginUrl']);
             $loginClient->setCookieJar();
+            $loginClient->setConfig($proxy);
             $loginClient->setParameterPost(array(
                 'email'         => $email,
                 'password'      => $password,
