@@ -8,8 +8,14 @@ class OX3_Api_Client extends Zend_Rest_Client
 {
     var $path_prefix = '/ox/3.0';
 
-    public function __construct($uri, $email, $password, $consumer_key, $consumer_secret, $oauth_realm, $cookieJarFile = './OX3_Api_CookieJar.txt', $sso = array(), $proxy = array())
+    public function __construct($uri, $email, $password, $consumer_key, $consumer_secret, $oauth_realm, $cookieJarFile = './OX3_Api_CookieJar.txt', $sso = array(), $proxy = array(), $path = '/ox/3.0')
     {
+        if (preg_match('#/ox/[0-9]\.0#', $path)) {
+            $this->path_prefix = $path;
+        } else {
+            throw new Exception ("Invalid path prefix specified");
+        }
+        if (empty($proxy)) { $proxy = array(); }
         parent::__construct($uri);
         $aUrl = parse_url($uri);
 
@@ -38,8 +44,8 @@ class OX3_Api_Client extends Zend_Rest_Client
         }
         $client->setCookieJar($cookieJar);
         $client->setConfig($proxy);
-        $result = $this->put('/a/session/validate');
-        
+        $result = $this->_checkAccessToken();
+
         // See if the openx3_access_token is still valid...
         if ($result->isError()) {
             // Get Request Token
@@ -51,12 +57,10 @@ class OX3_Api_Client extends Zend_Rest_Client
                 'accessTokenUrl'    => $sso['accessTokenUrl'],
                 'authorizeUrl'      => $sso['authorizeUrl'],
                 'consumerKey'       => $consumer_key,
-                'consumerSecret'    => $consumer_secret,
-                'realm'             => $oauth_realm,
+                'consumerSecret'    => $consumer_secret
             );
-            $oAuth = new OX3_Oauth_Consumer($config);
+            $oAuth = new Zend_Oauth_Consumer($config);
             $requestToken = $oAuth->getRequestToken();
-
             // Authenticate to SSO
             $loginClient = new Zend_Http_Client($sso['loginUrl']);
             $loginClient->setCookieJar();
@@ -81,7 +85,7 @@ class OX3_Api_Client extends Zend_Rest_Client
                 $accessToken = $oAuth->getAccessToken($vars, $requestToken)->getToken();
                 
                 $client->setCookie(new Zend_Http_Cookie('openx3_access_token', $accessToken, $aUrl['host']));
-                $result = $this->put('/a/session/validate');
+                $result = $this->_checkAccessToken();
                 if ($result->isSuccessful()) {
                     file_put_contents($cookieJarFile, serialize($client->getCookieJar()), LOCK_EX);
                     chmod($cookieJarFile, 0666);
@@ -92,6 +96,33 @@ class OX3_Api_Client extends Zend_Rest_Client
         }
     }
  
+    protected function _checkAccessToken()
+    {
+        switch ($this->path_prefix) {
+            case '/ox/3.0':
+                return $this->_checkAccessTokenV3();
+                break;
+            case '/ox/4.0':
+                return $this->_checkAccessTokenV4();
+                break;
+            default:
+                throw new Exception('Unknown API path');
+                break;
+        }
+    }
+    
+    protected function _checkAccessTokenV3()
+    {
+        $result = $this->put('/a/session/validate');
+        return $result;
+    }
+    
+    protected function _checkAccessTokenV4()
+    {
+        $result = $this->get('/user');
+        return $result;
+    }
+    
     /**
      * Overriding the __call() method so that I can return the $response object directly
      * since the Zend_Rest_Client's __call() method *requires* the response to be (valid) XML
@@ -158,7 +189,15 @@ class OX3_Api_Client extends Zend_Rest_Client
         if (is_string($data)) {
             $client->setRawData($data);
         } elseif (is_array($data) || is_object($data)) {
-            $client->setParameterPost((array) $data);
+            switch ($this->path_prefix) {
+                case '/ox/3.0':
+                    $client->setParameterPost((array) $data);
+                    break;
+                case '/ox/4.0':
+                    $client->setRawData(json_encode((array) $data));
+                    $client->setHeaders(array('Content-Type: application/json'));
+                    break;
+            }
         }
         if (isset($this->files) && is_array($this->files) && count($this->files) > 0)
         {
@@ -218,6 +257,18 @@ class OX3_Api_Client extends Zend_Rest_Client
      */
     function update($entity, $id, $data)
     {
+        switch ($this->path_prefix) {
+            case '/ox/3.0':
+                return $this->updateV3($entity, $id, $data);
+                break;
+            case '/ox/4.0':
+                return $this->updateV4($entity, $id, $data);
+                break;
+        }   
+    }
+    
+    function updateV3($entity, $id, $data)
+    {
         $current         = json_decode($this->get('/a/' . $entity . '/' . $id)->getBody());
 
         $params = array('action' => 'update');
@@ -240,217 +291,10 @@ class OX3_Api_Client extends Zend_Rest_Client
         }
         return $this->post('/a/' . $entity . '/' . $id, $update);
     }
-}
-
-/**
- * @category   Zend
- * @package    Zend_Oauth
- * @copyright  Copyright (c) 2005-2010 Zend Technologies USA Inc. (http://www.zend.com)
- * @license    http://framework.zend.com/license/new-bsd     New BSD License
- *
- * Note - Zend_Oauth_Consumer is extended to make use of the OX3_OAuth_Config and OX3_Oauth_Http_RequestToken classes
- *      - These two classes extend their Zend base classes to add support for 'realm'
- *
- * These changes have been tested against ZendFramework v1.10.6, v1.11.5, v1.11.6 and -trunk (rev 24024)
- */
-class OX3_Oauth_Consumer extends Zend_Oauth_Consumer
-{
-    /**
-     * Constructor; create a new object with an optional array|Zend_Config
-     * instance containing initialising options.
-     *
-     * @param  array|Zend_Config $options
-     * @return void
-     */
-    public function __construct($options = null)
+    
+    function updateV4($entity, $id, $data)
     {
-        $this->_config = new OX3_Oauth_Config;
-        if ($options !== null) {
-            if ($options instanceof Zend_Config) {
-                $options = $options->toArray();
-            }
-            $this->_config->setOptions($options);
-        }
-    }
-
-    /**
-     * Attempts to retrieve a Request Token from an OAuth Provider which is
-     * later exchanged for an authorized Access Token used to access the
-     * protected resources exposed by a web service API.
-     *
-     * @param  null|array $customServiceParameters Non-OAuth Provider-specified parameters
-     * @param  null|string $httpMethod
-     * @param  null|Zend_Oauth_Http_RequestToken $request
-     * @return Zend_Oauth_Token_Request
-     */
-    public function getRequestToken(
-        array $customServiceParameters = null,
-        $httpMethod = null,
-        OX3_Oauth_Http_RequestToken $request = null
-    ) {
-        if ($request === null) {
-            $request = new OX3_Oauth_Http_RequestToken($this, $customServiceParameters);
-        } elseif($customServiceParameters !== null) {
-            $request->setParameters($customServiceParameters);
-        }
-        if ($httpMethod !== null) {
-            $request->setMethod($httpMethod);
-        } else {
-            $request->setMethod($this->getRequestMethod());
-        }
-        $this->_requestToken = $request->execute();
-        return $this->_requestToken;
-    }
-
-    /**
-     * Retrieve an Access Token in exchange for a previously received/authorized
-     * Request Token.
-     *
-     * @param  array $queryData GET data returned in user's redirect from Provider
-     * @param  Zend_Oauth_Token_Request Request Token information
-     * @param  string $httpMethod
-     * @param  Zend_Oauth_Http_AccessToken $request
-     * @return Zend_Oauth_Token_Access
-     * @throws Zend_Oauth_Exception on invalid authorization token, non-matching response authorization token, or unprovided authorization token
-     */
-    public function getAccessToken(
-        $queryData,
-        Zend_Oauth_Token_Request $token,
-        $httpMethod = null,
-        Zend_Oauth_Http_AccessToken $request = null
-    ) {
-        $authorizedToken = new Zend_Oauth_Token_AuthorizedRequest($queryData);
-        if (!$authorizedToken->isValid()) {
-            require_once 'Zend/Oauth/Exception.php';
-            throw new Zend_Oauth_Exception(
-                'Response from Service Provider is not a valid authorized request token');
-        }
-        if (is_null($request)) {
-            $request = new OX3_Oauth_Http_AccessToken($this);
-        }
-
-        // OAuth 1.0a Verifier
-        if (!is_null($authorizedToken->getParam('oauth_verifier'))) {
-            $params = array_merge($request->getParameters(), array(
-                'oauth_verifier' => $authorizedToken->getParam('oauth_verifier')
-            ));
-            $request->setParameters($params);
-        }
-        if (!is_null($httpMethod)) {
-            $request->setMethod($httpMethod);
-        } else {
-            $request->setMethod($this->getRequestMethod());
-        }
-        if (isset($token)) {
-            if ($authorizedToken->getToken() !== $token->getToken()) {
-                require_once 'Zend/Oauth/Exception.php';
-                throw new Zend_Oauth_Exception(
-                    'Authorized token from Service Provider does not match'
-                    . ' supplied Request Token details'
-                );
-            }
-        } else {
-            require_once 'Zend/Oauth/Exception.php';
-            throw new Zend_Oauth_Exception('Request token must be passed to method');
-        }
-        $this->_requestToken = $token;
-        $this->_accessToken = $request->execute();
-        return $this->_accessToken;
-    }
-}
-
-class OX3_Oauth_Http_AccessToken extends Zend_Oauth_Http_AccessToken
-{
-    /**
-     * Generate and return a HTTP Client configured for the Header Request Scheme
-     * specified by OAuth, for use in requesting an Access Token.
-     *
-     * @param  array $params
-     * @return Zend_Http_Client
-     */
-    public function getRequestSchemeHeaderClient(array $params)
-    {
-        $params      = $this->_cleanParamsOfIllegalCustomParameters($params);
-        $headerValue = $this->_toAuthorizationHeader($params, $this->_consumer->getRealm());
-        $client      = Zend_Oauth::getHttpClient();
-
-        $client->setUri($this->_consumer->getAccessTokenUrl());
-        $client->setHeaders('Authorization', $headerValue);
-        $client->setMethod($this->_preferredRequestMethod);
-
-        return $client;
-    }
-}
-
-class OX3_Oauth_Http_RequestToken extends Zend_Oauth_Http_RequestToken
-{
-    /**
-     * Generate and return a HTTP Client configured for the Header Request Scheme
-     * specified by OAuth, for use in requesting a Request Token.
-     *
-     * @param array $params
-     * @return Zend_Http_Client
-     */
-    public function getRequestSchemeHeaderClient(array $params)
-    {
-        $headerValue = $this->_httpUtility->toAuthorizationHeader(
-            $params,
-            $this->_consumer->getRealm()
-        );
-        $client = Zend_Oauth::getHttpClient();
-        $client->setUri($this->_consumer->getRequestTokenUrl());
-        $client->setHeaders('Authorization', $headerValue);
-        $rawdata = $this->_httpUtility->toEncodedQueryString($params, true);
-        if (!empty($rawdata)) {
-            $client->setRawData($rawdata, 'application/x-www-form-urlencoded');
-        }
-        $client->setMethod($this->_preferredRequestMethod);
-        return $client;
-    }
-}
-
-class OX3_Oauth_Config extends Zend_Oauth_Config
-{
-    /**
-     * Parse option array or Zend_Config instance and setup options using their
-     * relevant mutators.
-     *
-     * @param  array|Zend_Config $options
-     * @return Zend_Oauth_Config
-     */
-    public function setOptions(array $options)
-    {
-        parent::setOptions($options);
-        foreach ($options as $key => $value) {
-            switch ($key) {
-                case 'realm':
-                    $this->setRealm($value);
-                    break;
-            }
-        }
-        return $this;
-    }
-
-    /**
-     * Set OAuth realm
-     *
-     * @param  string $realm
-     * @return Zend_Oauth_Config
-     */
-    public function setRealm($realm)
-    {
-        $this->_realm = $realm;
-        return $this;
-    }
-
-    /**
-     * Get OAuth realm
-     *
-     * @return string
-     */
-    public function getRealm()
-    {
-        return $this->_realm;
+        return $this->put('/' . $entity . '/' . $id, $data);
     }
 }
 
