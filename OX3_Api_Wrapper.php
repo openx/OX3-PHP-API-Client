@@ -1,11 +1,24 @@
 <?php
+
+/**
+ * OO wrappers around a few OX objects, transparently handles v3 and v4.
+ *
+ * PHP version 5
+ *
+ * @package    OX_API
+ * @author     Harold Martin <harold.martin@openx.com>
+ * @version    0.2
+ * @link       https://github.com/openx/OX3-PHP-API-Client/tree/wrapper
+ * @see        OX3_Api_Client.php
+ */
+
 require_once 'OX3_Api_Client.php';
 
 class OX_API
 {
 	protected $client;
 	protected $v;
-	public $hash;
+	protected $hash;
 	public function __construct($ox_api_config)
 	{
 		$sso = array(
@@ -24,6 +37,9 @@ class OX_API
 		}
 		$this->hash = $ox_api_config['hash'];
 		$this->client = new OX3_API_Client($ox_api_config['uri'], $ox_api_config['email'], $ox_api_config['password'], $ox_api_config['key'], $ox_api_config['secret'], $ox_api_config['realm'],  (dirname(__FILE__) . '/' . $ox_api_config['realm'] . '.txt'), $sso, '', $version_path);
+	}
+	public function get_hash() {
+		return $this->hash;
 	}
 	public function v1_to_uuid($obj_type, $obj_id) {
 		$TYPES_UUID_DICT = array(
