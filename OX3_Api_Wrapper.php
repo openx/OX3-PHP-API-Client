@@ -7,7 +7,7 @@
  *
  * @package    OX_API
  * @author     Harold Martin <harold.martin@openx.com>
- * @version    0.2
+ * @version    0.3
  * @link       https://github.com/openx/OX3-PHP-API-Client/tree/wrapper
  * @see        OX3_Api_Client.php
  */
@@ -109,7 +109,7 @@ class OX_API
 	public function account($id)
 	{
 		if ($this->v == 3) {
-			return json_decode($this->client->get(('/a/acl/account'. $id), array('overload' => 'medium'))->getBody(), true);
+			return json_decode($this->client->get(('/a/account/'. $id), array('overload' => 'medium'))->getBody(), true);
 		}
 		else if ($this->v == 4) {
 			return json_decode($this->client->get('/account/'. (is_numeric($id) ? $this->v1_to_uuid('account', $id) : $id))->getBody(), true)[0];
