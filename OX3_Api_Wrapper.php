@@ -7,7 +7,7 @@
  *
  * @package    OX_API
  * @author     Harold Martin <harold.martin@openx.com>
- * @version    0.3
+ * @version    0.4
  * @link       https://github.com/openx/OX3-PHP-API-Client/tree/wrapper
  * @see        OX3_Api_Client.php
  */
@@ -68,8 +68,6 @@ class OX_API
 	}
 	public function adunit($id)
 	{
-		print($id);
-		error_reporting(E_ALL);
 		if ($this->v == 3) {
 			return json_decode($this->client->get(('/a/adunit/'. $id), array('overload' => 'medium'))->getBody(), true);
 		}

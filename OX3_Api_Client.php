@@ -25,6 +25,7 @@ class OX3_Api_Client extends Zend_Rest_Client
         // Set the proxy['adapter'] if $proxy config was passed in
         if (!empty($proxy)) {
           $proxy['adapter'] = 'Zend_Http_Client_Adapter_Proxy';
+          $proxy['useragent'] = 'OX3-PHP-API-Client/1.0';
         }
         
         // Initilize the cookie jar, from the $cookieJarFile if present
