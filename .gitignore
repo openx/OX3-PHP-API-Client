@@ -1,3 +1,4 @@
 /vendor/
 /.idea/
 OX3_Api_CookieJar.txt
+composer.lock
