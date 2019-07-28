@@ -6,7 +6,7 @@ require_once 'Zend/Oauth/Consumer.php';
 
 class OX3_Api_Client extends Zend_Rest_Client 
 {
-    var $path_prefix = '/ox/3.0';
+    var $path_prefix = '/ox/4.0';
 
     public function __construct($uri, $email, $password, $consumer_key, $consumer_secret, $oauth_realm, $cookieJarFile = './OX3_Api_CookieJar.txt', $sso = array(), $proxy = array())
     {
@@ -113,6 +113,10 @@ class OX3_Api_Client extends Zend_Rest_Client
                     $this->_data[$key] = $value;
                 }
             }
+            else {
+                $this->_data = $args[1];
+            }
+
             //$this->_data['rest'] = 1;
             $response = $this->{'rest' . $method}($this->path_prefix . $args[0], $this->_data);
             $this->_data = array();//Initializes for next Rest method.
