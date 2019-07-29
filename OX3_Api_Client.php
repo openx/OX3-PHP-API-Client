@@ -143,7 +143,10 @@ class OX3_Api_Client extends Zend_Rest_Client
                 foreach ($args[1] as $key => $value) {
                     $this->_data[$key] = $value;
                 }
+            } else {
+                $this->_data = $args[1];
             }
+
             //$this->_data['rest'] = 1;
             $response = $this->{'rest' . $method}($this->path_prefix . $args[0], $this->_data);
             $this->_data = array();//Initializes for next Rest method.
@@ -186,6 +189,7 @@ class OX3_Api_Client extends Zend_Rest_Client
     protected function _performPost($method, $data = null)
     {
         $client = self::getHttpClient();
+        $client->setConfig(array('timeout' => 300));
         if (is_string($data)) {
             $client->setRawData($data);
         } elseif (is_array($data) || is_object($data)) {
