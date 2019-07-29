@@ -113,9 +113,6 @@ class OX3_Api_Client extends Zend_Rest_Client
                     $this->_data[$key] = $value;
                 }
             } else {
-              $this->_data = $args[1];
-            }
-            else {
                 $this->_data = $args[1];
             }
 
