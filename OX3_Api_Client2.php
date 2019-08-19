@@ -62,7 +62,8 @@ class OX3_Api_Client2 extends ZendRest\Client\RestClient
                 'consumerSecret'    => $consumer_secret
             );
             $oAuth = new ZendOauth\Consumer($config);
-            $requestToken = $oAuth->getRequestToken();
+            // in order to enforce the Content-Length header to be set, pass a dummy param
+            $requestToken = $oAuth->getRequestToken(array('k' => 'v'));
             // Authenticate to SSO
             $loginClient = new Zend\Http\Client($sso['loginUrl']);
             $loginClient->setOptions($proxy);
