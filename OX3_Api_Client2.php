@@ -5,6 +5,26 @@ require_once 'autoload.php';
 require_once 'zendframework/zendrest/library/ZendRest/Client/RestClient.php';
 require_once 'zendframework/zend-http/src/Cookies.php';
 require_once 'zendframework/zendoauth/library/ZendOAuth/Consumer.php';
+require_once 'zendframework/zendoauth/library/ZendOAuth/Http/AccessToken.php';
+
+class PatchedAccessToken extends ZendOAuth\Http\AccessToken {
+    public function getRequestSchemePostBodyClient(array $params) {
+        $client = parent::getRequestSchemePostBodyClient($params);
+        return $client;
+    }
+
+    public function getRequestSchemeHeaderClient(array $params) {
+        $client = parent::getRequestSchemeHeaderClient($params);
+        // to avoid Zend not sending a Content-Length header:
+        $client->setRawBody('dummy');
+        return $client;
+    }
+
+    public function getRequestSchemeQueryStringClient(array $params, $url) {
+        $client = parent::getRequestSchemeQueryStringClient($params, $url);
+        return $client;
+    }
+}
 
 class OX3_Api_Client2 extends ZendRest\Client\RestClient 
 {
@@ -84,8 +104,9 @@ class OX3_Api_Client2 extends ZendRest\Client\RestClient
                     throw new Exception('Error parsing SSO login response');
                 }
                 // Swap the (authorized) request token for an access token:
-                $accessToken = $oAuth->getAccessToken($vars, $requestToken)->getToken();
-            
+                $request = new PatchedAccessToken($oAuth);
+                $accessToken = $oAuth->getAccessToken($vars, $requestToken, null, $request)->getToken();
+
                 $cookie = new Zend\Http\Header\SetCookie('openx3_access_token', $accessToken);
                 $cookie->setDomain($aUrl['host']);
                 $client->addCookie($cookie);
