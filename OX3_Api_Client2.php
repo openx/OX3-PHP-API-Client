@@ -166,9 +166,16 @@ class OX3_Api_Client2 extends ZendRest\Client\RestClient
             if (!isset($args[0])) {
                 $args[0] = $this->uri->getPath();
             }
-            if (isset($args[1]) && is_array($args[1])) {
-                foreach ($args[1] as $key => $value) {
-                    $this->data[$key] = $value;
+
+            if (isset($args[1])) {
+                if (is_array($args[1])) {
+                    # not sure why we are doing this
+                    foreach ($args[1] as $key => $value) {
+                        $this->data[$key] = $value;
+                    }
+                }
+                elseif (is_string($args[1]) || is_object($args[1])) {
+                    $this->data = $args[1];
                 }
             }
             //$this->_data['rest'] = 1;
