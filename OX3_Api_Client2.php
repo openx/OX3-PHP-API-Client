@@ -1,10 +1,32 @@
 <?php
+/* This file includes the PHP client class supprting Zend Framework Version 2. */
 
-require_once 'Zend/Rest/Client.php';
-require_once 'Zend/Http/CookieJar.php';
-require_once 'Zend/Oauth/Consumer.php';
+require_once 'autoload.php';
+require_once 'zendframework/zendrest/library/ZendRest/Client/RestClient.php';
+require_once 'zendframework/zend-http/src/Cookies.php';
+require_once 'zendframework/zendoauth/library/ZendOAuth/Consumer.php';
+require_once 'zendframework/zendoauth/library/ZendOAuth/Http/AccessToken.php';
 
-class OX3_Api_Client extends Zend_Rest_Client 
+class PatchedAccessToken extends ZendOAuth\Http\AccessToken {
+    public function getRequestSchemePostBodyClient(array $params) {
+        $client = parent::getRequestSchemePostBodyClient($params);
+        return $client;
+    }
+
+    public function getRequestSchemeHeaderClient(array $params) {
+        $client = parent::getRequestSchemeHeaderClient($params);
+        // to avoid Zend not sending a Content-Length header:
+        $client->setRawBody('dummy');
+        return $client;
+    }
+
+    public function getRequestSchemeQueryStringClient(array $params, $url) {
+        $client = parent::getRequestSchemeQueryStringClient($params, $url);
+        return $client;
+    }
+}
+
+class OX3_Api_Client2 extends ZendRest\Client\RestClient 
 {
     var $path_prefix = '/ox/4.0';
 
@@ -31,23 +53,23 @@ class OX3_Api_Client extends Zend_Rest_Client
         // Set the proxy['adapter'] if $proxy config was passed in
         if (!empty($proxy)) {
           $proxy['adapter'] = 'Zend_Http_Client_Adapter_Proxy';
-        }
-        
+        }        
         // Initilize the cookie jar, from the $cookieJarFile if present
         $client = self::getHttpClient();
         $cookieJar = false;
         if (is_readable($cookieJarFile)) {
             $cookieJar = @unserialize(file_get_contents($cookieJarFile));
         }
-        if (!$cookieJar instanceof Zend_Http_CookieJar) {
-            $cookieJar = new Zend_Http_CookieJar();
+        if (!$cookieJar instanceof Zend\Http\Cookies) {
+            $cookieJar = new Zend\Http\Cookies();
         }
-        $client->setCookieJar($cookieJar);
-        $client->setConfig($proxy);
+        
+        $client->setCookies($cookieJar->getAllCookies(Zend\Http\Cookies::COOKIE_STRING_ARRAY));
+        $client->setOptions($proxy);
         $result = $this->_checkAccessToken();
 
         // See if the openx3_access_token is still valid...
-        if ($result->isError()) {
+        if ($result->isClientError()) {
             // Get Request Token
             $config = array(
                 // The default behaviour of Zend_Oauth_Consumer is to use 'oob' when callbackUrl is NOT set
@@ -59,35 +81,39 @@ class OX3_Api_Client extends Zend_Rest_Client
                 'consumerKey'       => $consumer_key,
                 'consumerSecret'    => $consumer_secret
             );
-            $oAuth = new Zend_Oauth_Consumer($config);
-            $requestToken = $oAuth->getRequestToken();
+            $oAuth = new ZendOauth\Consumer($config);
+            // in order to enforce the Content-Length header to be set, pass a dummy param
+            $requestToken = $oAuth->getRequestToken(array('k' => 'v'));
             // Authenticate to SSO
-            $loginClient = new Zend_Http_Client($sso['loginUrl']);
-            $loginClient->setCookieJar();
-            $loginClient->setConfig($proxy);
+            $loginClient = new Zend\Http\Client($sso['loginUrl']);
+            $loginClient->setOptions($proxy);
             $loginClient->setParameterPost(array(
                 'email'         => $email,
                 'password'      => $password,
                 'oauth_token'   => $requestToken->getToken(),
             ));
-            $loginClient->request(Zend_Http_Client::POST);
-            $loginBody = $loginClient->getLastResponse()->getBody();
+            $loginClient->setMethod('POST')->send();
+            $loginBody = $loginClient->getResponse()->getBody();
 
             // Parse response, sucessful headless logins will return oob?oauth_token=<token>&oauth_verifier=<verifier> as the body
-            if (substr($loginBody, 0, 4) == 'oob?') {
+            if (substr($loginBody, 0, 4) == 'oob?')  {
                 $vars = array();
                 @parse_str(substr($loginBody, 4), $vars);
+
                 if (empty($vars['oauth_token'])) {
                     throw new Exception('Error parsing SSO login response');
                 }
-
                 // Swap the (authorized) request token for an access token:
-                $accessToken = $oAuth->getAccessToken($vars, $requestToken)->getToken();
-                
-                $client->setCookie(new Zend_Http_Cookie('openx3_access_token', $accessToken, $aUrl['host']));
+                $request = new PatchedAccessToken($oAuth);
+                $accessToken = $oAuth->getAccessToken($vars, $requestToken, null, $request)->getToken();
+
+                $cookie = new Zend\Http\Header\SetCookie('openx3_access_token', $accessToken);
+                $cookie->setDomain($aUrl['host']);
+                $client->addCookie($cookie);
+
                 $result = $this->_checkAccessToken();
-                if ($result->isSuccessful()) {
-                    file_put_contents($cookieJarFile, serialize($client->getCookieJar()), LOCK_EX);
+                if ($result->isSuccess()) {
+                    file_put_contents($cookieJarFile, serialize($client->getCookies()), LOCK_EX);
                     chmod($cookieJarFile, 0666);
                 }
             } else {
@@ -133,39 +159,44 @@ class OX3_Api_Client extends Zend_Rest_Client
      */
     public function __call($method, $args)
     {
+
         $methods = array('post', 'get', 'delete', 'put');
 
         if (in_array(strtolower($method), $methods)) {
             if (!isset($args[0])) {
-                $args[0] = $this->_uri->getPath();
-            }
-            if (isset($args[1]) && is_array($args[1])) {
-                foreach ($args[1] as $key => $value) {
-                    $this->_data[$key] = $value;
-                }
-            } else {
-                $this->_data = $args[1];
+                $args[0] = $this->uri->getPath();
             }
 
+            if (isset($args[1])) {
+                if (is_array($args[1])) {
+                    # not sure why we are doing this
+                    foreach ($args[1] as $key => $value) {
+                        $this->data[$key] = $value;
+                    }
+                }
+                elseif (is_string($args[1]) || is_object($args[1])) {
+                    $this->data = $args[1];
+                }
+            }
             //$this->_data['rest'] = 1;
-            $response = $this->{'rest' . $method}($this->path_prefix . $args[0], $this->_data);
-            $this->_data = array();//Initializes for next Rest method.
+            $response = $this->{'rest' . $method}($this->path_prefix . $args[0], $this->data);
+            $this->data = array();//Initializes for next Rest method.
             return $response;
         } else {
             // More than one arg means it's definitely a Zend_Rest_Server
             if (sizeof($args) == 1) {
                 // Uses first called function name as method name
-                if (!isset($this->_data['method'])) {
-                    $this->_data['method'] = $method;
-                    $this->_data['arg1']  = $args[0];
+                if (!isset($this->data['method'])) {
+                    $this->data['method'] = $method;
+                    $this->data['arg1']  = $args[0];
                 }
-                $this->_data[$method]  = $args[0];
+                $this->data[$method]  = $args[0];
             } else {
-                $this->_data['method'] = $method;
+                $this->data['method'] = $method;
                 if (sizeof($args) > 0) {
                     foreach ($args as $key => $arg) {
                         $key = 'arg' . $key;
-                        $this->_data[$key] = $arg;
+                        $this->data[$key] = $arg;
                     }
                 }
             }
@@ -186,20 +217,21 @@ class OX3_Api_Client extends Zend_Rest_Client
      *
      * NOTE: Overload Zend_Rest_Client method to support file uploads.
      */
-    protected function _performPost($method, $data = null)
+    protected function performPost($method, $data = null)
     {
-        $client = self::getHttpClient();
-        $client->setConfig(array('timeout' => 300));
+        $client = $this->getHttpClient();
+        $client->setMethod($method);
+        $request = $client->getRequest();
         if (is_string($data)) {
-            $client->setRawData($data);
+            $client->setContent($data);
         } elseif (is_array($data) || is_object($data)) {
             switch ($this->path_prefix) {
                 case '/ox/3.0':
-                    $client->setParameterPost((array) $data);
+                    $request->getPost()->fromArray((array) $data);
                     break;
                 case '/ox/4.0':
-                    $client->setRawData(json_encode((array) $data));
-                    $client->setHeaders(array('Content-Type: application/json'));
+                    $rawData = $client->setRawBody(json_encode((array) $data));
+                    $headers = $client->setHeaders(array('Content-Type: application/json'));
                     break;
             }
         }
@@ -210,7 +242,7 @@ class OX3_Api_Client extends Zend_Rest_Client
                 call_user_func_array(array($client, 'setFileUpload'), $file);
             }
         }
-        return $client->request($method);
+        return $client->send($request);
     }
 
     /**
@@ -245,9 +277,9 @@ class OX3_Api_Client extends Zend_Rest_Client
      * @param array $array An array of config key=values to be set on the HTTP client
      */
     function setHttpConfig($config)
-    {
-        $client = self::getHttpClient();
-        $client->setConfig($config);
+    {   
+        $client = $this->getHttpClient();
+        $client->setOptions($config);
     }
 
     /**
