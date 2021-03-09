@@ -1,5 +1,5 @@
 {
-    "name": "fei-song/ox3-php-api-client",
+    "name": "openx/ox3-php-api-client",
     "description": "OpenX Platform API PHP CLIENT",
     "type": "package",
     "require": {
