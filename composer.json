@@ -1,0 +1,21 @@
+{
+    "name": "fei-song/ox3-php-api-client",
+    "description": "OpenX Platform API PHP CLIENT",
+    "type": "package",
+    "require": {
+        "zendframework/zend-http": "^2.6",
+        "zendframework/zendoauth": "^2.0",
+        "zendframework/zendrest": "^2.0"
+    },
+    "authors": [
+        {
+            "name": "fei.song",
+            "email": "fei.song@geniee.co.jp"
+        }
+    ],
+    "autoload": {
+        "psr-0": {
+            "OpenX\\PlatformAPI": "src"
+        }
+    }
+}

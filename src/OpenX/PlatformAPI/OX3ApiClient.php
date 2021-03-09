@@ -4,7 +4,7 @@ require_once 'Zend/Rest/Client.php';
 require_once 'Zend/Http/CookieJar.php';
 require_once 'Zend/Oauth/Consumer.php';
 
-class OX3_Api_Client extends Zend_Rest_Client 
+class OX3_Api_Client extends Zend_Rest_Client
 {
     var $path_prefix = '/ox/4.0';
 
@@ -30,9 +30,9 @@ class OX3_Api_Client extends Zend_Rest_Client
         }
         // Set the proxy['adapter'] if $proxy config was passed in
         if (!empty($proxy)) {
-          $proxy['adapter'] = 'Zend_Http_Client_Adapter_Proxy';
+            $proxy['adapter'] = 'Zend_Http_Client_Adapter_Proxy';
         }
-        
+
         // Initilize the cookie jar, from the $cookieJarFile if present
         $client = self::getHttpClient();
         $cookieJar = false;
@@ -83,7 +83,7 @@ class OX3_Api_Client extends Zend_Rest_Client
 
                 // Swap the (authorized) request token for an access token:
                 $accessToken = $oAuth->getAccessToken($vars, $requestToken)->getToken();
-                
+
                 $client->setCookie(new Zend_Http_Cookie('openx3_access_token', $accessToken, $aUrl['host']));
                 $result = $this->_checkAccessToken();
                 if ($result->isSuccessful()) {
@@ -95,7 +95,7 @@ class OX3_Api_Client extends Zend_Rest_Client
             }
         }
     }
- 
+
     protected function _checkAccessToken()
     {
         switch ($this->path_prefix) {
@@ -110,19 +110,19 @@ class OX3_Api_Client extends Zend_Rest_Client
                 break;
         }
     }
-    
+
     protected function _checkAccessTokenV3()
     {
         $result = $this->put('/a/session/validate');
         return $result;
     }
-    
+
     protected function _checkAccessTokenV4()
     {
         $result = $this->get('/user');
         return $result;
     }
-    
+
     /**
      * Overriding the __call() method so that I can return the $response object directly
      * since the Zend_Rest_Client's __call() method *requires* the response to be (valid) XML
@@ -268,9 +268,9 @@ class OX3_Api_Client extends Zend_Rest_Client
             case '/ox/4.0':
                 return $this->updateV4($entity, $id, $data);
                 break;
-        }   
+        }
     }
-    
+
     function updateV3($entity, $id, $data)
     {
         $current         = json_decode($this->get('/a/' . $entity . '/' . $id)->getBody());
@@ -295,7 +295,7 @@ class OX3_Api_Client extends Zend_Rest_Client
         }
         return $this->post('/a/' . $entity . '/' . $id, $update);
     }
-    
+
     function updateV4($entity, $id, $data)
     {
         return $this->put('/' . $entity . '/' . $id, $data);

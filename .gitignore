@@ -1,2 +1,6 @@
+/vendor/
+/.idea/
+OX3_Api_CookieJar.txt
+composer.lock
 .DS_Store
 examples/.DS_Store
