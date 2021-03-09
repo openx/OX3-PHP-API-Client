@@ -19,7 +19,7 @@ $result = $client->get('/a/user/1');
 
 if ($result->getStatus() == 200) {
     echo "Response: " . print_r(json_decode($result->getBody(), true), true) . "\n";
-} else {;
+} else {
     echo "Non-200 response:\ncode: " . $result->getStatus() . "\nmessage: " . $result->getMessage() . "\nbody: " . $result->getBody() . "\n";
 }
 
