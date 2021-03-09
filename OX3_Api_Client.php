@@ -34,7 +34,7 @@ class OX3_Api_Client extends Zend_Rest_Client
         }
         
         // Initilize the cookie jar, from the $cookieJarFile if present
-        $client = self::getHttpClient();
+        $client = self::getHttpClient()->setConfig(array('timeout' => 60));
         $cookieJar = false;
         if (is_readable($cookieJarFile)) {
             $cookieJar = @unserialize(file_get_contents($cookieJarFile));
