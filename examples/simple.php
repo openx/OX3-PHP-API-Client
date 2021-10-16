@@ -1,5 +1,5 @@
 <?php
-require_once __DIR__ ."/../vendor/autoload.php";
+require_once __DIR__ . "/../vendor/autoload.php";
 
 use OpenX\PlatformAPI\OX3ApiClient2;
 
@@ -16,9 +16,9 @@ $client = new OX3ApiClient2($uri, $email, $password, $key, $secret, $realm);
 $result = $client->get('/site');
 
 
-if ($result->getStatusCode() == 200) {
+if ($result->getStatusCode() === 200) {
     echo "Response: " . print_r(json_decode($result->getBody(), true), true) . "\n";
-} else {;
+} else {
     echo "Non-200 response:\ncode: " . $result->getStatus() . "\nmessage: " . $result->getMessage() . "\nbody: " . $result->getBody() . "\n";
 }
 

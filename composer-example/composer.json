@@ -1,0 +1,15 @@
+{
+  "repositories": [
+    {
+      "type": "vcs",
+      "url": "https://github.com/openx/OX3-PHP-API-Client"
+    }
+  ],
+  "require": {
+    "openx/ox3-php-api-client": "dev-main",
+    "zendframework/zend-http": "^2.6",
+    "zendframework/zendoauth": "^2.0",
+    "zendframework/zendrest": "^2.0",
+    "ext-json": "*"
+  }
+}

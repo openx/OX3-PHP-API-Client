@@ -1,21 +1,26 @@
 {
-    "name": "openx/ox3-php-api-client",
-    "description": "OpenX Platform API PHP CLIENT",
-    "type": "package",
-    "require": {
-        "zendframework/zend-http": "^2.6",
-        "zendframework/zendoauth": "^2.0",
-        "zendframework/zendrest": "^2.0"
+  "name": "openx/ox3-php-api-client",
+  "description": "OpenX Platform API PHP CLIENT",
+  "type": "package",
+  "require": {
+    "zendframework/zend-http": "^2.6",
+    "zendframework/zendoauth": "^2.0",
+    "zendframework/zendrest": "^2.0",
+    "ext-json": "*"
+  },
+  "authors": [
+    {
+      "name": "fei.song",
+      "email": "fei.song@geniee.co.jp"
     },
-    "authors": [
-        {
-            "name": "fei.song",
-            "email": "fei.song@geniee.co.jp"
-        }
-    ],
-    "autoload": {
-        "psr-0": {
-            "OpenX\\PlatformAPI": "src"
-        }
+    {
+      "name": "Cezar Pokorski",
+      "email": "cezar@openx.com"
     }
+  ],
+  "autoload": {
+    "psr-0": {
+      "OpenX\\PlatformAPI": "src"
+    }
+  }
 }
